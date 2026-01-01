@@ -1,0 +1,28 @@
+# Virtual environments
+.venv/
+venv/
+env/
+pyvenv.cfg
+
+# Python caches
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Environment variables
+.env
+
+# IDE/editor
+.vscode/
+.idea/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Local DB / artifacts (you will likely have these)
+*.sqlite
+*.db

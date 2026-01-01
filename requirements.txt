@@ -1,0 +1,11 @@
+langgraph
+langgraph-checkpoint-sqlite
+aiosqlite
+pydantic
+fastapi
+uvicorn
+httpx
+mcp
+langchain-mcp-adapters
+fastmcp
+python-dotenv
