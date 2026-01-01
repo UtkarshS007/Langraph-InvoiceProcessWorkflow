@@ -1,0 +1,165 @@
+{
+  "workflow_name": "invoice_processing_langie",
+  "version": "1.0",
+
+  "globals": {
+    "match_threshold": 0.85,
+    "hitl": {
+      "enabled": true,
+      "pause_status": "PAUSED",
+      "reject_status": "REQUIRES_MANUAL_HANDLING"
+    }
+  },
+
+  "mcp_servers": {
+    "COMMON": {
+      "name": "common",
+      "transport": "stdio",
+      "command": "python",
+      "args": ["-m", "src.mcp.common_server"]
+    },
+    "ATLAS": {
+      "name": "atlas",
+      "transport": "stdio",
+      "command": "python",
+      "args": ["-m", "src.mcp.atlas_server"]
+    }
+  },
+
+  "abilities": {
+    "accept_invoice_payload": { "server": "COMMON", "tool": "accept_invoice_payload" },
+
+    "ocr_extract": { "server": "ATLAS", "tool": "ocr_extract", "bigtool_pool": "ocr" },
+    "parse_line_items": { "server": "COMMON", "tool": "parse_line_items" },
+
+    "normalize_vendor": { "server": "COMMON", "tool": "normalize_vendor" },
+    "enrich_vendor": { "server": "ATLAS", "tool": "enrich_vendor", "bigtool_pool": "enrichment" },
+    "compute_flags": { "server": "COMMON", "tool": "compute_flags" },
+
+    "fetch_po": { "server": "ATLAS", "tool": "fetch_po", "bigtool_pool": "erp" },
+    "fetch_grn": { "server": "ATLAS", "tool": "fetch_grn", "bigtool_pool": "erp" },
+    "fetch_history": { "server": "ATLAS", "tool": "fetch_history", "bigtool_pool": "erp" },
+
+    "compute_match_score": { "server": "COMMON", "tool": "compute_match_score" },
+
+    "save_state_for_human_review": { "server": "COMMON", "tool": "save_state_for_human_review", "bigtool_pool": "db" },
+    "accept_or_reject_invoice": { "server": "ATLAS", "tool": "accept_or_reject_invoice" },
+
+    "build_accounting_entries": { "server": "COMMON", "tool": "build_accounting_entries" },
+    "apply_invoice_approval_policy": { "server": "ATLAS", "tool": "apply_invoice_approval_policy" },
+
+    "post_to_erp": { "server": "ATLAS", "tool": "post_to_erp" },
+    "schedule_payment": { "server": "ATLAS", "tool": "schedule_payment" },
+
+    "notify_vendor": { "server": "ATLAS", "tool": "notify_vendor" },
+    "notify_finance_team": { "server": "ATLAS", "tool": "notify_finance_team" },
+
+    "output_final_payload": { "server": "COMMON", "tool": "output_final_payload" }
+  },
+
+  "bigtool": {
+    "pools": {
+      "ocr": [
+        { "name": "tesseract", "kind": "mock" },
+        { "name": "google_vision", "kind": "mock" },
+        { "name": "aws_textract", "kind": "mock" }
+      ],
+      "enrichment": [
+        { "name": "vendor_db", "kind": "mock" },
+        { "name": "clearbit", "kind": "mock" },
+        { "name": "pdl", "kind": "mock" }
+      ],
+      "erp": [
+        { "name": "sap_connector", "kind": "mock" },
+        { "name": "oracle_connector", "kind": "mock" },
+        { "name": "netsuite_connector", "kind": "mock" }
+      ],
+      "db": [
+        { "name": "sqlite", "kind": "native" },
+        { "name": "postgres", "kind": "mock" },
+        { "name": "dynamo", "kind": "mock" }
+      ]
+    }
+  },
+
+  "stages": [
+    {
+      "id": "INTAKE",
+      "mode": "deterministic",
+      "abilities": ["accept_invoice_payload"],
+      "next": "UNDERSTAND"
+    },
+    {
+      "id": "UNDERSTAND",
+      "mode": "deterministic",
+      "abilities": ["ocr_extract", "parse_line_items"],
+      "next": "PREPARE"
+    },
+    {
+      "id": "PREPARE",
+      "mode": "deterministic",
+      "abilities": ["normalize_vendor", "enrich_vendor", "compute_flags"],
+      "next": "RETRIEVE"
+    },
+    {
+      "id": "RETRIEVE",
+      "mode": "deterministic",
+      "abilities": ["fetch_po", "fetch_grn", "fetch_history"],
+      "next": "MATCH_TWO_WAY"
+    },
+    {
+      "id": "MATCH_TWO_WAY",
+      "mode": "deterministic",
+      "abilities": ["compute_match_score"],
+      "branches": [
+        { "when": "match_score < globals.match_threshold", "next": "CHECKPOINT_HITL" },
+        { "when": "else", "next": "RECONCILE" }
+      ]
+    },
+    {
+      "id": "CHECKPOINT_HITL",
+      "mode": "deterministic",
+      "abilities": ["save_state_for_human_review"],
+      "terminal": true
+    },
+    {
+      "id": "HITL_DECISION",
+      "mode": "non_deterministic",
+      "abilities": ["accept_or_reject_invoice"],
+      "branches": [
+        { "when": "decision == 'ACCEPT'", "next": "RECONCILE" },
+        { "when": "decision == 'REJECT'", "next": "COMPLETE" }
+      ]
+    },
+    {
+      "id": "RECONCILE",
+      "mode": "deterministic",
+      "abilities": ["build_accounting_entries"],
+      "next": "APPROVE"
+    },
+    {
+      "id": "APPROVE",
+      "mode": "deterministic",
+      "abilities": ["apply_invoice_approval_policy"],
+      "next": "POSTING"
+    },
+    {
+      "id": "POSTING",
+      "mode": "deterministic",
+      "abilities": ["post_to_erp", "schedule_payment"],
+      "next": "NOTIFY"
+    },
+    {
+      "id": "NOTIFY",
+      "mode": "deterministic",
+      "abilities": ["notify_vendor", "notify_finance_team"],
+      "next": "COMPLETE"
+    },
+    {
+      "id": "COMPLETE",
+      "mode": "deterministic",
+      "abilities": ["output_final_payload"],
+      "terminal": true
+    }
+  ]
+}
