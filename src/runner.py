@@ -227,7 +227,7 @@ def _mock_common_tool(tool_name: str, payload: Dict[str, Any]) -> Dict[str, Any]
             # Optional: include logs or store separately
             "logs": full_state.get("logs", []),
         }
-        return {"final_payload": payload}
+        return {"final_payload": final_payload}
 
     raise ValueError(f"Unknown COMMON tool: {tool_name}")
 
