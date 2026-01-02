@@ -25,6 +25,8 @@ import httpx
 
 from src.graph_builder import build_graphs
 from src.runner import make_runtime
+from datetime import datetime
+
 
 
 def pretty_print_logs(state: dict) -> None:
@@ -36,6 +38,28 @@ def pretty_print_logs(state: dict) -> None:
         msg = e.get("message")
         print(f"{i:03d}. [{stage}] {event} - {msg}")
     print("=======================================\n")
+
+def save_demo_artifacts(prefix: str, state: dict) -> None:
+    """
+    Save final payload + logs to demo/ as JSON files so the demo is reviewable.
+    """
+    demo_dir = Path("demo")
+    demo_dir.mkdir(exist_ok=True)
+
+    final_payload = state.get("final_payload") or {}
+    logs = state.get("logs") or []
+
+    (demo_dir / f"{prefix}_output_final.json").write_text(
+        json.dumps(final_payload, indent=2),
+        encoding="utf-8",
+    )
+    (demo_dir / f"{prefix}_output_logs.json").write_text(
+        json.dumps(logs, indent=2),
+        encoding="utf-8",
+    )
+
+    print(f"Saved: demo/{prefix}_output_final.json")
+    print(f"Saved: demo/{prefix}_output_logs.json")
 
 
 def main() -> None:
@@ -87,6 +111,8 @@ def main() -> None:
         print("Workflow PAUSED for HITL review.")
         print(f"hitl_checkpoint_id: {hitl_checkpoint_id}")
         print(f"review_url: {review_url}")
+        # Save paused-state artifacts (useful evidence of checkpoint persistence)
+        save_demo_artifacts("paused", out)
 
         # --- Human decision (change to REJECT to test reject path) ---
         decision = "ACCEPT"
@@ -116,6 +142,8 @@ def main() -> None:
 
         print(f"\nResume workflow finished with status: {resumed.get('status')}")
         pretty_print_logs(resumed)
+        save_demo_artifacts("final", resumed)
+
 
         # Final payload check
         final_payload = resumed.get("final_payload")
@@ -125,6 +153,7 @@ def main() -> None:
         print("Workflow did not pause (no HITL required).")
         final_payload = out.get("final_payload")
         print("Final payload keys:", list(final_payload.keys()) if isinstance(final_payload, dict) else type(final_payload))
+        save_demo_artifacts("final", out)
 
 
 if __name__ == "__main__":

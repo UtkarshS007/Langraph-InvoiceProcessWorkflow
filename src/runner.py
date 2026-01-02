@@ -60,7 +60,7 @@ class ReviewQueueDB:
             conn.execute(
                 """
                 CREATE TABLE IF NOT EXISTS human_review_queue (
-                    hitl_checkpoint_id TEXT PRIMARY KEY,
+                    checkpoint_id TEXT PRIMARY KEY,
                     status TEXT NOT NULL,
                     review_url TEXT NOT NULL,
                     state_json TEXT NOT NULL,
@@ -205,6 +205,28 @@ def _mock_common_tool(tool_name: str, payload: Dict[str, Any]) -> Dict[str, Any]
 
     if tool_name == "output_final_payload":
         # Final payload should be clean + structured
+        # Build a clean final payload from full workflow state (preferred)
+        full_state = payload.get("state", {})
+        final_payload = {
+            "invoice_id": full_state.get("invoice_id"),
+            "status": full_state.get("status"),
+            "parsed_invoice": full_state.get("parsed_invoice"),
+            "line_items": full_state.get("line_items"),
+            "vendor": full_state.get("vendor"),
+            "risk_flags": full_state.get("risk_flags"),
+            "retrieval": full_state.get("retrieval"),
+            "match_score": full_state.get("match_score"),
+            "needs_hitl": full_state.get("needs_hitl"),
+            "decision": full_state.get("decision"),
+            "accounting_entries": full_state.get("accounting_entries"),
+            "approval_result": full_state.get("approval_result"),
+            "erp_post_result": full_state.get("erp_post_result"),
+            "notify_result": full_state.get("notify_result"),
+            "review_url": full_state.get("review_url"),
+            "hitl_checkpoint_id": full_state.get("hitl_checkpoint_id"),
+            # Optional: include logs or store separately
+            "logs": full_state.get("logs", []),
+        }
         return {"final_payload": payload}
 
     raise ValueError(f"Unknown COMMON tool: {tool_name}")
@@ -376,6 +398,9 @@ def execute_stage(runtime: Runtime, stage_id: str, state: InvoiceWorkflowState, 
 
         # Prepare a payload for tool execution based on current state
         tool_payload = _build_tool_payload(stage_id, ability_name, state, selected_tool_name)
+
+        if stage_id == "COMPLETE" and ability_name == "output_final_payload":
+            tool_payload["state"] = dict(state)  # if state is Pydantic, use state.model_dump()
 
         log_event(
             state,

@@ -104,7 +104,25 @@ def build_accounting_entries(payload: Dict[str, Any]) -> Dict[str, Any]:
 
 @mcp.tool
 def output_final_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
-    """Produce final structured payload (mock)."""
+    state = payload.get("state", {})
+    final_payload = {
+        "invoice_id": state.get("invoice_id"),
+        "status": state.get("status"),
+        "parsed_invoice": state.get("parsed_invoice"),
+        "line_items": state.get("line_items"),
+        "vendor": state.get("vendor"),
+        "risk_flags": state.get("risk_flags"),
+        "retrieval": state.get("retrieval"),
+        "match_score": state.get("match_score"),
+        "needs_hitl": state.get("needs_hitl"),
+        "decision": state.get("decision"),
+        "accounting_entries": state.get("accounting_entries"),
+        "approval_result": state.get("approval_result"),
+        "erp_post_result": state.get("erp_post_result"),
+        "notify_result": state.get("notify_result"),
+        "review_url": state.get("review_url"),
+        "hitl_checkpoint_id": state.get("hitl_checkpoint_id"),
+    }
     return {"final_payload": payload}
 
 
