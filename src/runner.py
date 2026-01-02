@@ -60,7 +60,7 @@ class ReviewQueueDB:
             conn.execute(
                 """
                 CREATE TABLE IF NOT EXISTS human_review_queue (
-                    checkpoint_id TEXT PRIMARY KEY,
+                    hitl_checkpoint_id TEXT PRIMARY KEY,
                     status TEXT NOT NULL,
                     review_url TEXT NOT NULL,
                     state_json TEXT NOT NULL,
@@ -71,11 +71,11 @@ class ReviewQueueDB:
             )
             conn.commit()
 
-    def enqueue(self, checkpoint_id: str, state: Dict[str, Any]) -> str:
+    def enqueue(self, hitl_checkpoint_id: str, state: Dict[str, Any]) -> str:
         """
         Persist state into DB and return review URL.
         """
-        review_url = f"http://localhost:8000/review/{checkpoint_id}"
+        review_url = f"http://localhost:8000/review/{hitl_checkpoint_id}"
         now = datetime.now(timezone.utc).isoformat()
 
         with self._connect() as conn:
@@ -85,18 +85,18 @@ class ReviewQueueDB:
                 (checkpoint_id, status, review_url, state_json, created_at, decision)
                 VALUES (?, ?, ?, ?, ?, ?);
                 """,
-                (checkpoint_id, "PAUSED", review_url, json.dumps(state), now, None),
+                (hitl_checkpoint_id, "PAUSED", review_url, json.dumps(state), now, None),
             )
             conn.commit()
 
         return review_url
 
-    def get(self, checkpoint_id: str) -> Optional[Dict[str, Any]]:
+    def get(self, hitl_checkpoint_id: str) -> Optional[Dict[str, Any]]:
         with self._connect() as conn:
             cur = conn.execute(
                 "SELECT checkpoint_id, status, review_url, state_json, created_at, decision "
                 "FROM human_review_queue WHERE checkpoint_id = ?;",
-                (checkpoint_id,),
+                (hitl_checkpoint_id,),
             )
             row = cur.fetchone()
 
@@ -112,19 +112,19 @@ class ReviewQueueDB:
             "decision": row[5],
         }
 
-    def set_decision(self, checkpoint_id: str, decision: str) -> None:
+    def set_decision(self, hitl_checkpoint_id: str, decision: str) -> None:
         with self._connect() as conn:
             conn.execute(
                 "UPDATE human_review_queue SET decision = ? WHERE checkpoint_id = ?;",
-                (decision, checkpoint_id),
+                (decision, hitl_checkpoint_id),
             )
             conn.commit()
 
-    def set_status(self, checkpoint_id: str, status: str) -> None:
+    def set_status(self, hitl_checkpoint_id: str, status: str) -> None:
         with self._connect() as conn:
             conn.execute(
                 "UPDATE human_review_queue SET status = ? WHERE checkpoint_id = ?;",
-                (status, checkpoint_id),
+                (status, hitl_checkpoint_id),
             )
             conn.commit()
 
@@ -317,12 +317,12 @@ def execute_stage(runtime: Runtime, stage_id: str, state: InvoiceWorkflowState, 
 
     # Special handling: CHECKPOINT_HITL stage must pause and persist state
     if stage_id == "CHECKPOINT_HITL":
-        checkpoint_id = state.get("checkpoint_id") or uuid.uuid4().hex
-        state["checkpoint_id"] = checkpoint_id
+        hitl_checkpoint_id = state.get("hitl_checkpoint_id") or uuid.uuid4().hex
+        state["hitl_checkpoint_id"] = hitl_checkpoint_id
         state["status"] = globals_cfg.get("hitl", {}).get("pause_status", "PAUSED")
 
         # Persist full state into human review DB
-        review_url = runtime.review_db.enqueue(checkpoint_id, dict(state))
+        review_url = runtime.review_db.enqueue(hitl_checkpoint_id, dict(state))
         state["review_url"] = review_url
 
         # Log what happened
@@ -331,7 +331,7 @@ def execute_stage(runtime: Runtime, stage_id: str, state: InvoiceWorkflowState, 
             stage=stage_id,
             event="checkpoint_created",
             message="Checkpoint created and state persisted for human review",
-            checkpoint_id=checkpoint_id,
+            hitl_checkpoint_id=hitl_checkpoint_id,
             review_url=review_url,
         )
 
@@ -425,15 +425,15 @@ def execute_stage(runtime: Runtime, stage_id: str, state: InvoiceWorkflowState, 
 
     # HITL_DECISION stage:
     # In a real setup, this is triggered after a human acts in the UI.
-    # For MVP: read decision from DB using checkpoint_id and store into state.
+    # For MVP: read decision from DB using hitl_checkpoint_id and store into state.
     if stage_id == "HITL_DECISION":
-        checkpoint_id = state.get("checkpoint_id")
-        if not checkpoint_id:
-            raise ValueError("HITL_DECISION requires state['checkpoint_id']")
+        hitl_checkpoint_id = state.get("hitl_checkpoint_id")
+        if not hitl_checkpoint_id:
+            raise ValueError("HITL_DECISION requires state['hitl_checkpoint_id']")
 
-        row = runtime.review_db.get(checkpoint_id)
+        row = runtime.review_db.get(hitl_checkpoint_id)
         if not row:
-            raise ValueError(f"No review queue record found for checkpoint_id={checkpoint_id}")
+            raise ValueError(f"No review queue record found for hitl_checkpoint_id={hitl_checkpoint_id}")
 
         decision = row.get("decision")
         state["decision"] = decision  # "ACCEPT" or "REJECT"
@@ -443,7 +443,7 @@ def execute_stage(runtime: Runtime, stage_id: str, state: InvoiceWorkflowState, 
             stage=stage_id,
             event="hitl_decision_loaded",
             message="Loaded human decision from DB",
-            checkpoint_id=checkpoint_id,
+            hitl_checkpoint_id=hitl_checkpoint_id,
             decision=decision,
         )
 
@@ -571,19 +571,19 @@ def _apply_result_to_state(stage_id: str, ability_name: str, state: InvoiceWorkf
 # -----------------------------
 # Convenience helpers
 # -----------------------------
-def resume_state_from_checkpoint(runtime: Runtime, checkpoint_id: str) -> InvoiceWorkflowState:
+def resume_state_from_checkpoint(runtime: Runtime, hitl_checkpoint_id: str) -> InvoiceWorkflowState:
     """
     Load the persisted state from human review queue DB.
     This is what you'll pass into resume_app.invoke(...).
     """
-    row = runtime.review_db.get(checkpoint_id)
+    row = runtime.review_db.get(hitl_checkpoint_id)
     if not row:
-        raise ValueError(f"No checkpoint found for checkpoint_id={checkpoint_id}")
+        raise ValueError(f"No checkpoint found for hitl_checkpoint_id={hitl_checkpoint_id}")
 
     state = row["state"]
     state = ensure_defaults(state)  # type: ignore
-    # Ensure checkpoint_id and review_url present in state
-    state["checkpoint_id"] = checkpoint_id
+    # Ensure hitl_checkpoint_id and review_url present in state
+    state["hitl_checkpoint_id"] = hitl_checkpoint_id
     state["review_url"] = row["review_url"]
     # Keep status as PAUSED until decision is applied
     state.setdefault("status", "PAUSED")
@@ -593,6 +593,6 @@ def resume_state_from_checkpoint(runtime: Runtime, checkpoint_id: str) -> Invoic
         stage="RESUME",
         event="resume_loaded",
         message="Loaded state from DB for resuming workflow",
-        checkpoint_id=checkpoint_id,
+        hitl_checkpoint_id=hitl_checkpoint_id,
     )
     return state  # type: ignore

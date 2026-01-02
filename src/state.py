@@ -157,7 +157,7 @@ class InvoiceWorkflowState(TypedDict, total=False):
     needs_hitl: bool
 
     # --- HITL checkpoint fields ---
-    checkpoint_id: str
+    hitl_checkpoint_id: str
     review_url: str
     decision: DecisionType
 

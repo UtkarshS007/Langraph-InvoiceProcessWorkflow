@@ -2,7 +2,8 @@
 from __future__ import annotations
 
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, Literal
+from pydantic import BaseModel
+from typing import Literal
 
 from src.persistence.review_db import ReviewQueueDB
 

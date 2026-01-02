@@ -1,0 +1,12 @@
+{
+  "invoice_id": "INV-DEMO-001",
+  "invoice_number": "INV-DEMO-001",
+  "amount": 1500,
+  "currency": "INR",
+  "po_ref": "PO-123",
+  "vendor": { "name": "Acme Pvt Ltd" },
+  "attachments": [
+    { "filename": "invoice.pdf", "content_type": "application/pdf", "path": "demo/invoice.pdf" }
+  ],
+  "force_mismatch": true
+}
