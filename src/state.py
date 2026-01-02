@@ -173,6 +173,9 @@ class InvoiceWorkflowState(TypedDict, total=False):
     # --- Audit logs ---
     logs: List[Dict[str, Any]]  # serialized LogEvent models
 
+    # --- Final Payload ---
+    notify_result: Dict[str, Any] = Field(default_factory=dict)
+    final_payload: Dict[str, Any] = Field(default_factory=dict)
 
 # -----------------------------
 # Helper utilities
@@ -195,6 +198,8 @@ def ensure_defaults(state: InvoiceWorkflowState) -> InvoiceWorkflowState:
     """
     state.setdefault("status", "NEW")
     state.setdefault("logs", [])
+    state.setdefault("final_payload", {})
+    state.setdefault("notify_result", {})
     return state
 
 
