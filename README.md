@@ -6,6 +6,15 @@
 
 I built an Invoice Processing Agent using LangGraph that models the full workflow as a stateful graph of **12 stages** - from intake and OCR through vendor enrichment, ERP retrieval, matching, approval, posting, and notifications. The agent persists a shared state across nodes and supports dynamic tool selection (Bigtool) for OCR/enrichment/ERP connectors. If two-way matching fails, it creates a Human-in-the-Loop checkpoint, stores the full state in SQLite, pauses execution, and exposes an API for accept/reject decisions. After the human decision, the workflow resumes from the checkpoint and completes end-to-end with structured logs and a final payload.
 
+## Determinsitc Langgraph vs LLM-Based Langgraph (Agentic)
+Before we proceed I wanted to make a brief distiction between the 2 types of Langgraph. 
+
+*The distinction between a deterministic and an LLM-based LangGraph lies in the orchestrator of the logic: in a deterministic graph, the developer defines a fixed 'train track' where every transition is governed by hard-coded Python rules or if/else statements, ensuring 100% predictability and auditability. In contrast, an LLM-based graph operates like a 'GPS-guided vehicle,' where an LLM acts as the agentic brain at each node, dynamically reasoning through the current state to decide the next best action or tool to call. While the deterministic approach excels in high-stakes environments requiring strict compliance and reliability, the LLM-based approach is superior for handling ambiguous, unstructured tasks where the optimal path cannot be pre-defined.*
+
+This Repo focuses on creating an Invoice Process Workflow using Determisnitic Langgraph. 
+
+** *A similar project will follow on with Agentic Langgraph - to draw comaprisions.* **
+
 
 ## IN DETAIL 
 - I designed the pipeline as a `LangGraph State Machine`, where each workflow step is a node and all nodes share a single persistent state object (invoice metadata, OCR text, parsed line items, vendor profile, ERP artifacts, match score, decisions, and logs).
