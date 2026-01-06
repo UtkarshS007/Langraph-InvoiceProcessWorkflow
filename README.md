@@ -1,4 +1,4 @@
-# Invoice Process Workflow - LANGGRAPH Implementation
+# Invoice Process Workflow - DETERMINISTIC LANGGRAPH Implementation
 
 ------------------------------------------------
 **PROJECT STATUS** - `Ongoing` as of 02 Jan 2026
