@@ -13,7 +13,7 @@ Before we proceed I wanted to make a brief distiction between the 2 types of Lan
 
 This Repo focuses on creating an Invoice Process Workflow using Determisnitic Langgraph. 
 
-** *A similar project will follow on with Agentic Langgraph - to draw comaprisions.* **
+** *A similar project will follow on with Agentic Langgraph - to draw comparisions.* **
 
 
 ## IN DETAIL 
